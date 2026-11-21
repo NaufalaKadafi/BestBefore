@@ -1,0 +1,26 @@
+[
+  {
+    "id": "models",
+    "title": "AI-written code with model IDs",
+    "note": "Dates read from the OpenAI deprecations page on 2026-11-15 through a summarising fetch. Re-open the page and confirm before recording.",
+    "answer": "Here is how to build your support bot with OpenAI.\n\nFirst, create the assistant with the Assistants API so OpenAI stores the thread for you. For the reasoning step use model=\"gpt-4-turbo\", which is the best balance of cost and quality. To generate the banner image, call the images endpoint with dall-e-3. If you need the strongest model for the final answer, use model=\"gpt-5\"."
+  },
+  {
+    "id": "eu-ai-act",
+    "title": "EU AI Act deadlines",
+    "note": "New dates come from one law-firm alert read on 2026-11-15. Confirm against the Official Journal before recording.",
+    "answer": "Under the EU AI Act, the obligations for high-risk AI systems listed in Annex III start to apply on 2 August 2026. The rules for high-risk AI embedded in regulated products under Annex I apply from 2 August 2027. Transparency duties for chatbots under Article 50 apply from 2 August 2026."
+  },
+  {
+    "id": "indonesia-vat",
+    "title": "Indonesian VAT (PPN)",
+    "note": "Only the 2025 rule (PMK 131/2024) was checked. Changes during 2026 were NOT checked.",
+    "answer": "The VAT (PPN) rate in Indonesia is 11% for all goods and services."
+  },
+  {
+    "id": "sponsors",
+    "title": "Facts about the sponsors",
+    "note": "Read from Tavily and Bifrost documentation on 2026-11-15 through a summarising fetch. Expected: Bifrost v1 claim expired (v2.0.0 released 2026-08-26); Tavily credits fresh. Confirm before recording.",
+    "answer": "Bifrost's latest major version is v1, so write your plugin against the v1.6 hooks. Tavily's free Researcher plan includes 1,000 API credits per month."
+  }
+]

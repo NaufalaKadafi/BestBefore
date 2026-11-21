@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BestBefore: freshness labels for AI answers</title>
+<style>
+  :root {
+    --bg: #f6f3ec; --panel: #fffdf8; --ink: #1d1b16; --muted: #6b655a; --line: #d9d2c2;
+    --fresh: #1f7a4d; --fresh-bg: #dff3e6; --expiring: #a15c00; --expiring-bg: #fdecc8;
+    --expired: #b3261e; --expired-bg: #fbdcd9; --unverified: #5f6368; --unverified-bg: #e6e6e3;
+    --accent: #1d1b16; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17160f; --panel: #201e16; --ink: #f1ecdf; --muted: #a39c8c; --line: #3a372c;
+      --fresh: #6fd49b; --fresh-bg: #173524; --expiring: #f2b24c; --expiring-bg: #3d2c0b;
+      --expired: #ff8a80; --expired-bg: #45191a; --unverified: #b4b4ae; --unverified-bg: #2e2e2a;
+      --accent: #f1ecdf;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { font: 700 28px/1 var(--mono); letter-spacing: -0.5px; margin: 0; }
+  h1 span { border: 2px solid var(--ink); padding: 4px 8px; border-radius: 4px; }
+  header p { margin: 0; color: var(--muted); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 32px 0 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  textarea { width: 100%; min-height: 150px; resize: vertical; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font: 14px/1.5 var(--mono); background: var(--bg); color: var(--ink); }
+  textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; padding: 9px 18px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  label.opt { color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+  .spacer { flex: 1; }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .error { border-color: var(--expired); color: var(--expired); background: var(--expired-bg); margin-top: 16px; }
+
+  .stampwrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .stamp { font-family: var(--mono); text-transform: uppercase; border: 3px double currentColor; border-radius: 6px;
+    padding: 10px 16px; transform: rotate(-2deg); line-height: 1.2; }
+  .stamp small { display: block; font-size: 11px; letter-spacing: 2px; }
+  .stamp b { font-size: 22px; letter-spacing: 1px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { font: 600 12px var(--mono); padding: 4px 9px; border-radius: 999px; }
+  .fresh { color: var(--fresh); } .expiring { color: var(--expiring); } .expired { color: var(--expired); } .unverified { color: var(--unverified); }
+  .chip.fresh, mark.fresh { background: var(--fresh-bg); } .chip.expiring, mark.expiring { background: var(--expiring-bg); }
+  .chip.expired, mark.expired { background: var(--expired-bg); } .chip.unverified, mark.unverified { background: var(--unverified-bg); }
+  .answer { white-space: pre-wrap; font: 14px/1.7 var(--mono); }
+  mark { border-radius: 4px; padding: 1px 3px; border-bottom: 2px solid currentColor; }
+  mark sup { font-size: 10px; font-weight: 700; margin-left: 2px; }
+
+  .claim { margin-top: 12px; border-left: 5px solid currentColor; }
+  .claim > * { color: var(--ink); }
+  .claim .head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .claim .tag { font: 700 12px var(--mono); letter-spacing: 1px; text-transform: uppercase; }
+  .claim .text { font-family: var(--mono); font-size: 14px; margin: 6px 0 10px; }
+  .claim .when { font: 600 14px var(--mono); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+  .box { border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+  .box h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .box q { font-style: italic; }
+  .meta { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+  .badge { font: 600 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; margin-right: 4px; }
+  a { color: inherit; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12.5px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span>BEST&middot;BEFORE</span></h1>
+    <p>Every AI answer carries facts that expire. This puts the date on the label.</p>
+  </header>
+
+  <section class="panel">
+    <textarea id="answer" aria-label="AI-generated answer to check" placeholder="Paste an AI-generated answer or AI-written code here..."></textarea>
+    <div class="row">
+      <span id="samples" class="row" style="margin:0"></span>
+      <span class="spacer"></span>
+      <label class="opt"><input type="checkbox" id="rewrite"> also rewrite stale claims</label>
+      <button class="primary" id="go">Check freshness</button>
+    </div>
+    <p class="note" id="sampleNote" hidden></p>
+  </section>
+
+  <div id="error" class="panel error" hidden role="alert"></div>
+
+  <div id="out" hidden>
+    <h2>Label</h2>
+    <section class="panel stampwrap">
+      <div id="stamp" class="stamp"></div>
+      <div>
+        <div id="chips" class="chips"></div>
+        <p class="note" id="checked"></p>
+      </div>
+    </section>
+
+    <h2>Answer, annotated</h2>
+    <section class="panel"><div id="annotated" class="answer"></div></section>
+
+    <div id="rewrittenWrap" hidden>
+      <h2>Rewritten answer</h2>
+      <section class="panel"><div id="rewritten" class="answer"></div></section>
+    </div>
+
+    <h2>Claims</h2>
+    <div id="claims"></div>
+
+    <h2>Ledger: what this check cost</h2>
+    <section class="panel">
+      <div id="totals" class="chips"></div>
+      <div class="scroll" style="margin-top:12px">
+        <table>
+          <thead><tr><th>Claim</th><th>Stage</th><th>Via</th><th>Model / call</th><th class="num">Tokens</th><th class="num">Latency</th><th class="num">Cost / credits</th></tr></thead>
+          <tbody id="ledger"></tbody>
+        </table>
+      </div>
+      <div id="ledgerNotes"></div>
+    </section>
+  </div>
+
+  <footer id="health">Checking configuration...</footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
+const WORD = { fresh: "Fresh", expiring: "Best before", expired: "Expired", unverified: "Unverified" };
+
+function whenText(c) {
+  if (c.status === "expired") return c.expired_on ? "Expired " + c.expired_on : "Expired (no date in source)";
+  if (c.status === "expiring") return c.best_before ? "Best before " + c.best_before + " · " + c.days_left + " days left" : "Expiring (no date stated)";
+  if (c.status === "fresh") return "Re-check by " + c.best_before + " (estimate)";
+  return "No date: not verified";
+}
+
+function annotate(answer, claims) {
+  const spans = claims.filter((c) => c.span).map((c, i) => ({ c, n: claims.indexOf(c) + 1 })).sort((a, b) => a.c.span[0] - b.c.span[0]);
+  let html = "", pos = 0;
+  for (const { c, n } of spans) {
+    if (c.span[0] < pos) continue;
+    html += esc(answer.slice(pos, c.span[0]));
+    html += '<mark class="' + c.status + '" title="' + esc(whenText(c)) + '">' + esc(answer.slice(c.span[0], c.span[1])) + "<sup>" + n + "</sup></mark>";
+    pos = c.span[1];
+  }
+  return html + esc(answer.slice(pos));
+}
+
+function claimCard(c, n) {
+  const ev = c.evidence, inf = c.inference, st = c.evidence_strength || {};
+  let evidence = '<p class="meta">No usable evidence.</p>';
+  if (ev) {
+    evidence = "<q>" + esc(ev.quote) + "</q>" +
+      '<div class="meta"><a href="' + esc(safeUrl(ev.url)) + '" target="_blank" rel="noopener noreferrer">' + esc(ev.domain) + "</a> · " +
+      (ev.published_date ? "dated " + esc(ev.published_date) : "no date from Tavily") + "</div>" +
+      '<div class="meta">' +
+      '<span class="badge">' + (ev.live ? "fetched live" : "may be cached") + "</span>" +
+      '<span class="badge">' + (ev.official ? "official domain" : "third party") + "</span>" +
+      '<span class="badge">quote ' + esc(ev.quote_match) + "</span></div>";
+  }
+  let inference = '<p class="meta">No verdict.</p>';
+  if (inf) {
+    inference = esc(inf.reasoning || inf.verdict) +
+      '<div class="meta">verdict: ' + esc(inf.verdict) + (c.replacement ? " · now: <b>" + esc(c.replacement) + "</b>" : "") + "</div>" +
+      '<div class="meta">' + (inf.model ? '<span class="badge">' + esc(inf.model) + "</span>" : "") +
+      (inf.is_fallback ? '<span class="badge">answered by fallback</span>' : "") + "</div>" +
+      (inf.cross_check ? '<div class="meta">second model <span class="badge">' + esc(inf.cross_check.model) + "</span> " +
+        (inf.cross_check.agrees ? "agrees" : "<b>disagrees</b> (" + esc(inf.cross_check.verdict) + ")") + "</div>" : "");
+  }
+  const notes = (c.notes || []).concat(c.error ? ["Error: " + c.error] : []).map((t) => '<div class="meta">⚠ ' + esc(t) + "</div>").join("");
+  return '<article class="panel claim ' + c.status + '">' +
+    '<div class="head"><span class="tag ' + c.status + '">' + n + " · " + WORD[c.status] + "</span>" +
+    '<span class="when">' + esc(whenText(c)) + "</span><span class=\"spacer\"></span>" +
+    '<span class="meta">' + esc(c.type_label) + (c.score != null ? " · freshness " + c.score + "/100" : "") + "</span></div>" +
+    '<div class="text">' + esc(c.text) + "</div>" +
+    '<div class="cols"><div class="box"><h3>Evidence: what the source says</h3>' + evidence + "</div>" +
+    '<div class="box"><h3>Inference: what the model concluded</h3>' + inference + "</div></div>" +
+    '<div class="meta">' + esc(c.reason || "") + " Evidence strength " + (st.total ?? 0) + "/100 (agreement " + (st.agreement ?? 0) +
+    ", recency " + (st.recency ?? 0) + ", source " + (st.source ?? 0) + ").</div>" + notes + "</article>";
+}
+
+function render(r) {
+  $("out").hidden = false;
+  const s = r.stamp;
+  $("stamp").className = "stamp " + (s.status === "none" ? "unverified" : s.status);
+  $("stamp").innerHTML = "<small>" + esc(s.text) + "</small><b>" + esc(s.date || (s.status === "none" ? "—" : "see claims")) + "</b>";
+  $("chips").innerHTML = ["expired", "expiring", "fresh", "unverified"].map((k) => '<span class="chip ' + k + '">' + r.counts[k] + " " + WORD[k].toLowerCase() + "</span>").join("");
+  $("checked").textContent = "Checked " + r.checked_on + " · run " + r.run_id + " · " + r.claims.length + " time-sensitive claims";
+  $("annotated").innerHTML = annotate(r.answer, r.claims);
+  $("rewrittenWrap").hidden = !r.rewritten;
+  $("rewritten").textContent = r.rewritten || "";
+  $("claims").innerHTML = r.claims.length ? r.claims.map((c, i) => claimCard(c, i + 1)).join("") : '<section class="panel">No time-sensitive claims were found in this answer.</section>';
+
+  const t = r.ledger.totals;
+  $("totals").innerHTML = [
+    t.llm_calls + " LLM calls via Bifrost", t.llm_fallback_calls + " answered by fallback",
+    (t.prompt_tokens + t.completion_tokens) + " tokens", t.cost_usd == null ? "cost: unavailable" : "$" + t.cost_usd.toFixed(5),
+    t.tavily_calls + " Tavily calls", t.tavily_credits + " Tavily credits",
+  ].map((x) => '<span class="chip unverified">' + esc(x) + "</span>").join("");
+  $("ledger").innerHTML = r.ledger.entries.map((e) => "<tr><td>" + esc(e.claim_id) + "</td><td>" + esc(e.stage) + "</td><td>" + (e.kind === "llm" ? "Bifrost" : "Tavily") + "</td><td>" +
+    (e.kind === "llm" ? esc(e.model_used) + (e.is_fallback ? " (fallback)" : "") + (e.cache_hit ? " (cache)" : "") : (e.live ? "live fetch" : esc(e.stage)) + " · HTTP " + esc(e.status)) +
+    '</td><td class="num">' + (e.kind === "llm" ? (e.prompt_tokens + e.completion_tokens) : "") + '</td><td class="num">' + e.latency_ms + ' ms</td><td class="num">' +
+    (e.kind === "llm" ? (e.cost_usd == null ? "n/a" : "$" + e.cost_usd.toFixed(5)) : (e.credits + " cr")) + "</td></tr>").join("");
+  $("ledgerNotes").innerHTML = r.ledger.notes.map((n) => '<p class="note">' + esc(n) + "</p>").join("");
+}
+
+async function check() {
+  const answer = $("answer").value.trim();
+  if (!answer) return;
+  $("error").hidden = true; $("go").disabled = true; $("go").textContent = "Checking live sources...";
+  try {
+    const resp = await fetch("/api/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer, rewrite: $("rewrite").checked }) });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error((data.error && data.error.message) || "Request failed");
+    render(data);
+  } catch (err) {
+    $("error").hidden = false; $("error").textContent = err.message; $("out").hidden = true;
+  } finally {
+    $("go").disabled = false; $("go").textContent = "Check freshness";
+  }
+}
+$("go").addEventListener("click", check);
+
+fetch("/api/demo").then((r) => r.json()).then((samples) => {
+  for (const s of samples) {
+    const b = document.createElement("button");
+    b.textContent = s.title;
+    b.addEventListener("click", () => { $("answer").value = s.answer; $("sampleNote").hidden = false; $("sampleNote").textContent = "Sample text only; the check itself runs live. " + s.note; });
+    $("samples").appendChild(b);
+  }
+});
+fetch("/api/health").then((r) => r.json()).then((h) => {
+  $("health").textContent = "Bifrost " + h.bifrost + " at " + h.bifrost_url + " · virtual key " + (h.virtual_key ? "set" : "not set") +
+    " · extract: " + (h.model_extract || "not set") + " · judge: " + (h.model_judge || "not set") +
+    " · fallbacks: " + (h.fallbacks.length || "none") + " · Tavily key " + (h.tavily_key ? "set" : "not set");
+});
+</script>
+</body>
+</html>
