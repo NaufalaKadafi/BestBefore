@@ -1,0 +1,72 @@
+{
+  "_comment": "One entry per claim type. 'volatility_days' drives the estimated re-check date for fresh claims. 'tavily' holds the search strategy chosen for that kind of fact. Domains are plain hostnames.",
+  "model_or_api": {
+    "label": "Model ID / SDK / API endpoint",
+    "volatility_days": 30,
+    "query_suffix": "deprecation shutdown date replacement",
+    "tavily": {
+      "search_depth": "advanced",
+      "topic": "general",
+      "exact_match": true,
+      "max_age_hours": 0,
+      "include_domains": [
+        "developers.openai.com", "platform.openai.com", "openai.com",
+        "docs.anthropic.com", "docs.claude.com", "ai.google.dev", "cloud.google.com",
+        "docs.mistral.ai", "learn.microsoft.com", "docs.aws.amazon.com"
+      ],
+      "include_domains_mode": "prefer",
+      "extract": true,
+      "extract_depth": "advanced"
+    },
+    "why": "Vendor deprecation tables are continuously updated pages. Tavily's docs warn that time_range drops such pages, so we force a live fetch (max_age_hours=0), match the exact identifier, and prefer vendor domains."
+  },
+  "pricing": {
+    "label": "Price / plan / quota",
+    "volatility_days": 30,
+    "query_suffix": "pricing",
+    "tavily": {
+      "search_depth": "advanced",
+      "topic": "general",
+      "max_age_hours": 0,
+      "extract": true,
+      "extract_depth": "advanced"
+    },
+    "why": "Pricing pages change in place and keep old publish dates, so a live fetch matters more than a date filter."
+  },
+  "law_regulation": {
+    "label": "Law / regulation / tax rule",
+    "volatility_days": 90,
+    "query_suffix": "current rule effective date amendment",
+    "tavily": {
+      "search_depth": "advanced",
+      "topic": "general",
+      "time_range": "year",
+      "extract": false
+    },
+    "why": "Legal changes arrive as dated publications, so a recent date window surfaces amendments that supersede older summaries."
+  },
+  "leadership": {
+    "label": "Company leadership / ownership",
+    "volatility_days": 180,
+    "query_suffix": "current",
+    "tavily": {
+      "search_depth": "basic",
+      "topic": "news",
+      "time_range": "year",
+      "exact_match": true,
+      "extract": false
+    },
+    "why": "Leadership changes are news events; the news topic returns dated articles and exact_match pins the person or company name."
+  },
+  "other": {
+    "label": "Other time-sensitive fact",
+    "volatility_days": 90,
+    "query_suffix": "latest",
+    "tavily": {
+      "search_depth": "basic",
+      "topic": "general",
+      "extract": false
+    },
+    "why": "Default strategy."
+  }
+}
